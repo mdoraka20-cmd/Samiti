@@ -100,6 +100,7 @@ const DEFAULT_USERS: UserAccount[] = [
     active: true,
     created: '2026-01-01',
     has_pw: true,
+    passwordHash: 'admin',
   },
   {
     username: 'cashier',
@@ -109,6 +110,7 @@ const DEFAULT_USERS: UserAccount[] = [
     active: true,
     created: '2026-03-15',
     has_pw: true,
+    passwordHash: '1234',
   },
 ];
 
@@ -356,6 +358,15 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const diff = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
           parsed.license.days_left = diff;
           parsed.license.expired = diff < 0;
+        }
+        // Ensure users have passwordHash initialized if missing
+        if (Array.isArray(parsed.users)) {
+          parsed.users = parsed.users.map((u: UserAccount) => {
+            if (u.username === 'admin' && !u.passwordHash) {
+              return { ...u, passwordHash: 'admin' };
+            }
+            return u;
+          });
         }
         return parsed;
       }
@@ -721,12 +732,28 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const changePassword = (username: string, newPasswordHash: string) => {
-    setData((prev) => ({
-      ...prev,
-      users: prev.users.map((u) =>
+    setData((prev) => {
+      const updatedUsers = prev.users.map((u) =>
         u.username === username ? { ...u, has_pw: true, passwordHash: newPasswordHash } : u
-      ),
-    }));
+      );
+      const updated = {
+        ...prev,
+        users: updatedUsers,
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save to localStorage', e);
+      }
+      return updated;
+    });
+
+    setCurrentUser((prev) => {
+      if (prev && prev.username === username) {
+        return { ...prev, has_pw: true, passwordHash: newPasswordHash };
+      }
+      return prev;
+    });
   };
 
   return (

@@ -73,6 +73,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
   const [oldPass, setOldPass] = useState('');
   const [newPass1, setNewPass1] = useState('');
   const [newPass2, setNewPass2] = useState('');
+  const [passSuccessMsg, setPassSuccessMsg] = useState('');
 
   // Delete User Modal State
   const [deleteUserTarget, setDeleteUserTarget] = useState<string | null>(null);
@@ -134,11 +135,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
       setFormError(lang === 'en' ? 'Select at least one category to wipe' : 'কমপক্ষে একটি ক্যাটাগরি নির্বাচন করুন');
       return;
     }
-    if (wipePass !== 'admin') {
+    const adminUser = data.users.find((u) => u.username === 'admin');
+    const currentAdminPass = adminUser?.passwordHash || 'admin';
+    if (wipePass !== currentAdminPass) {
       setFormError(
         lang === 'en'
-          ? 'Incorrect admin password (default: admin)'
-          : 'অ্যাডমিন পাসওয়ার্ড সঠিক নয় (ডিফল্ট: admin)'
+          ? 'Incorrect admin password.'
+          : 'অ্যাডমিন পাসওয়ার্ড সঠিক নয়।'
       );
       return;
     }
@@ -174,6 +177,32 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
+    setPassSuccessMsg('');
+
+    const targetUser = currentUser.username;
+    const userInDb = data.users.find((u) => u.username === targetUser);
+    const expectedCurrentPass = userInDb?.passwordHash || (targetUser === 'admin' ? 'admin' : '');
+
+    // Check old password if existing password is set
+    if (expectedCurrentPass) {
+      if (!oldPass) {
+        setFormError(
+          lang === 'en'
+            ? 'Please enter your current password.'
+            : 'অনুগ্রহ করে আপনার বর্তমান পাসওয়ার্ড দিন।'
+        );
+        return;
+      }
+      if (oldPass !== expectedCurrentPass) {
+        setFormError(
+          lang === 'en'
+            ? 'Current password did not match. (Default is admin if never changed)'
+            : 'বর্তমান পাসওয়ার্ড মেলেনি। (পূর্বে পাসওয়ার্ড পরিবর্তন না করে থাকলে ডিফল্ট পাসওয়ার্ড: admin)'
+        );
+        return;
+      }
+    }
+
     if (newPass1.length < 4) {
       setFormError(
         lang === 'en'
@@ -186,11 +215,18 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
       setFormError(lang === 'en' ? 'Passwords do not match' : 'দুটি নতুন পাসওয়ার্ড মেলেনি');
       return;
     }
-    changePassword(currentUser.username, newPass1);
+
+    changePassword(targetUser, newPass1);
     setOldPass('');
     setNewPass1('');
     setNewPass2('');
-    triggerToast(lang === 'en' ? 'Password changed successfully!' : 'পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে!');
+
+    const msg =
+      lang === 'en'
+        ? `Password for "${targetUser}" updated successfully! Use this new password for your next login.`
+        : `"${targetUser}" এর পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে! পরবর্তী লগইনের জন্য এই নতুন পাসওয়ার্ডটি ব্যবহার করুন।`;
+    setPassSuccessMsg(msg);
+    triggerToast(msg);
   };
 
   return (
@@ -705,31 +741,27 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              {t('currentPasswordLabel')}
-            </label>
-            <input
-              type="password"
-              placeholder={t('currentPasswordLabel')}
-              value={oldPass}
-              onChange={(e) => setOldPass(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            />
-          </div>
+          {passSuccessMsg && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs flex items-center gap-2 font-medium">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span>{passSuccessMsg}</span>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              {t('newPasswordLabel')}
+              {t('currentPasswordLabel')} <span className="text-rose-500">*</span>
             </label>
             <input
               type="password"
               required
-              placeholder={lang === 'en' ? 'New password (min 4 chars)' : 'নতুন পাসওয়ার্ড (কমপক্ষে ৪ অক্ষর)'}
-              value={newPass1}
+              autoComplete="current-password"
+              placeholder={lang === 'en' ? 'Enter current password' : 'বর্তমান পাসওয়ার্ড লিখুন'}
+              value={oldPass}
               onChange={(e) => {
-                setNewPass1(e.target.value);
+                setOldPass(e.target.value);
                 setFormError('');
+                setPassSuccessMsg('');
               }}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
@@ -737,16 +769,37 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              {t('confirmPasswordLabel')}
+              {t('newPasswordLabel')} <span className="text-rose-500">*</span>
             </label>
             <input
               type="password"
               required
-              placeholder={lang === 'en' ? 'Confirm new password' : 'পুনরায় নিশ্চিত করুন'}
+              autoComplete="new-password"
+              placeholder={lang === 'en' ? 'New password (min 4 chars)' : 'নতুন পাসওয়ার্ড (কমপক্ষে ৪ অক্ষর)'}
+              value={newPass1}
+              onChange={(e) => {
+                setNewPass1(e.target.value);
+                setFormError('');
+                setPassSuccessMsg('');
+              }}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              {t('confirmPasswordLabel')} <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="password"
+              required
+              autoComplete="new-password"
+              placeholder={lang === 'en' ? 'Confirm new password' : 'নতুন পাসওয়ার্ড পুনরায় লিখুন'}
               value={newPass2}
               onChange={(e) => {
                 setNewPass2(e.target.value);
                 setFormError('');
+                setPassSuccessMsg('');
               }}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
@@ -831,12 +884,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
 
           <div className="pt-3">
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              {t('adminPasswordVerifyLabel')}
+              {lang === 'en' ? 'Enter current admin password to confirm *' : 'নিশ্চিত করতে বর্তমান অ্যাডমিন পাসওয়ার্ড দিন *'}
             </label>
             <input
               type="password"
               required
-              placeholder="admin"
+              autoComplete="current-password"
+              placeholder={lang === 'en' ? 'Current admin password' : 'বর্তমান অ্যাডমিন পাসওয়ার্ড'}
               value={wipePass}
               onChange={(e) => {
                 setWipePass(e.target.value);

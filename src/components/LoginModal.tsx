@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, User, AlertCircle, Globe } from 'lucide-react';
+import { Lock, User, AlertCircle, X } from 'lucide-react';
 import { useSamiti } from '../context/SamitiContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -8,21 +8,33 @@ interface LoginModalProps {
   onCancel?: () => void;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
-  const { data, setCurrentUser, lang, t } = useSamiti();
+export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, onCancel }) => {
+  const { data, setCurrentUser, changePassword, lang, t } = useSamiti();
 
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin');
+  // Inputs start completely empty - user must manually enter username and password
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isFirstSetup, setIsFirstSetup] = useState(false);
   const [newPass1, setNewPass1] = useState('');
   const [newPass2, setNewPass2] = useState('');
+
+  const adminUser = data.users.find((u) => u.username === 'admin');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     const cleanUser = username.trim().toLowerCase();
+    if (!cleanUser) {
+      setError(
+        lang === 'en'
+          ? 'Please enter your username.'
+          : 'অনুগ্রহ করে আপনার ইউজার নেম লিখুন।'
+      );
+      return;
+    }
+
     const user = data.users.find((u) => u.username === cleanUser);
 
     if (!user) {
@@ -43,40 +55,31 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
       return;
     }
 
-    // First time setup check (empty password)
+    // First time setup check (user created without password)
     if (!user.has_pw && password === '') {
       setIsFirstSetup(true);
       return;
     }
 
-    // Default admin check
-    if (cleanUser === 'admin') {
-      if (password === 'admin' || (user.passwordHash && password === user.passwordHash)) {
+    // Expected password: if user has a passwordHash, that MUST match strictly.
+    // For admin, default password is 'admin' ONLY if no passwordHash has been set yet.
+    const expectedPassword = user.passwordHash || (cleanUser === 'admin' ? 'admin' : '');
+
+    if (expectedPassword) {
+      if (password === expectedPassword) {
         setCurrentUser(user);
         onSuccess();
         return;
       } else {
         setError(
           lang === 'en'
-            ? 'Incorrect password (admin default: admin)'
-            : 'পাসওয়ার্ড ভুল হয়েছে (অ্যাডমিন ডিফল্ট পাসওয়ার্ড: admin)'
+            ? 'Incorrect password. Please enter the correct password.'
+            : 'পাসওয়ার্ড ভুল হয়েছে। অনুগ্রহ করে সঠিক পাসওয়ার্ড দিন।'
         );
         return;
       }
-    }
-
-    // Other user check
-    if (user.passwordHash) {
-      if (password === user.passwordHash) {
-        setCurrentUser(user);
-        onSuccess();
-        return;
-      } else {
-        setError(lang === 'en' ? 'Incorrect password.' : 'পাসওয়ার্ড ভুল হয়েছে।');
-        return;
-      }
     } else {
-      // Allow login and prompt setup
+      // First-time password setup prompt
       setIsFirstSetup(true);
     }
   };
@@ -99,16 +102,27 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
     const cleanUser = username.trim().toLowerCase();
     const user = data.users.find((u) => u.username === cleanUser);
     if (user) {
-      user.has_pw = true;
-      user.passwordHash = newPass1;
-      setCurrentUser(user);
+      changePassword(cleanUser, newPass1);
+      setCurrentUser({ ...user, has_pw: true, passwordHash: newPass1 });
       onSuccess();
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-gradient-to-br from-indigo-950 via-teal-900 to-slate-900 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full overflow-hidden p-6 sm:p-8 relative">
+    <div className="fixed inset-0 z-50 bg-gradient-to-br from-indigo-950/90 via-teal-950/80 to-slate-950/95 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full overflow-hidden p-6 sm:p-8 relative animate-in fade-in zoom-in-95 duration-150">
+        {/* Optional close button if already logged in */}
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="absolute top-4 left-4 p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+            title={lang === 'en' ? 'Close' : 'বন্ধ করুন'}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+
         {/* Language switch at top right */}
         <div className="absolute top-4 right-4">
           <LanguageSwitcher compact={true} />
@@ -132,7 +146,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
         )}
 
         {!isFirstSetup ? (
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4" autoComplete="off">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">{t('usernameLabel')}</label>
               <div className="relative">
@@ -140,9 +154,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
                 <input
                   type="text"
                   required
-                  placeholder="admin"
+                  autoComplete="off"
+                  placeholder={lang === 'en' ? 'Enter username (e.g. admin)' : 'ইউজার নেম লিখুন (যেমন: admin)'}
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    setError('');
+                  }}
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none"
                 />
               </div>
@@ -154,9 +172,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
                 <Lock className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                 <input
                   type="password"
-                  placeholder={lang === 'en' ? 'Enter password' : 'পাসওয়ার্ড দিন'}
+                  required
+                  autoComplete="new-password"
+                  placeholder={lang === 'en' ? 'Enter password' : 'পাসওয়ার্ড লিখুন'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none"
                 />
               </div>
@@ -171,14 +194,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
 
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-500 leading-relaxed">
               <span className="font-bold text-slate-700 block">{t('defaultLoginInfoTitle')}</span>
-              {t('defaultLoginInfoText')}
+              {adminUser?.passwordHash && adminUser.passwordHash !== 'admin' ? (
+                <p className="text-emerald-700 font-medium">
+                  {lang === 'en'
+                    ? 'User: admin | (Password has been updated)'
+                    : 'ইউজার: admin | (পাসওয়ার্ড পরিবর্তিত হয়েছে)'}
+                </p>
+              ) : (
+                <p className="text-slate-600">{t('defaultLoginInfoText')}</p>
+              )}
               <p className="mt-1 text-slate-400">
                 {t('firstTimeUserHelp')}
               </p>
             </div>
           </form>
         ) : (
-          <form onSubmit={handleSetupPassword} className="space-y-4">
+          <form onSubmit={handleSetupPassword} className="space-y-4" autoComplete="off">
             <div className="p-2.5 bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-xl text-xs">
               {lang === 'en' ? 'Set a new password for user ' : 'ইউজার '}
               <strong>{username}</strong> {t('setupPasswordPrompt')}
@@ -189,6 +220,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
               <input
                 type="password"
                 required
+                autoComplete="new-password"
                 placeholder={lang === 'en' ? 'At least 4 characters' : 'কমপক্ষে ৪ অক্ষর'}
                 value={newPass1}
                 onChange={(e) => setNewPass1(e.target.value)}
@@ -201,6 +233,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
               <input
                 type="password"
                 required
+                autoComplete="new-password"
                 placeholder={lang === 'en' ? 'Confirm password' : 'পুনরায় নিশ্চিত করুন'}
                 value={newPass2}
                 onChange={(e) => setNewPass2(e.target.value)}
