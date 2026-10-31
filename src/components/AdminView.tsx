@@ -763,7 +763,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
                 setFormError('');
                 setPassSuccessMsg('');
               }}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none"
             />
           </div>
 
@@ -782,7 +782,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
                 setFormError('');
                 setPassSuccessMsg('');
               }}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none"
             />
           </div>
 
@@ -801,7 +801,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
                 setFormError('');
                 setPassSuccessMsg('');
               }}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none"
             />
           </div>
 

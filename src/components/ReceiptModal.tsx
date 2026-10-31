@@ -434,6 +434,48 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Bottom Action Bar (No Print) */}
+        <div className="noprint bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between gap-3 flex-wrap border-t border-slate-800">
+          <div className="text-xs text-slate-300 flex items-center gap-2">
+            <span className="font-semibold text-emerald-400">
+              {t('receiptNoPrefix')} #{formatReceiptId(receiptId)}
+            </span>
+            <span className="text-slate-400">| {member.name}</span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={handlePrint}
+              disabled={isProcessing}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs sm:text-sm font-bold transition cursor-pointer shadow-sm disabled:opacity-50"
+            >
+              {isProcessing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Printer className="w-4 h-4" />
+              )}
+              <span>{t('printReceiptBtn')}</span>
+            </button>
+
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isProcessing}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs sm:text-sm font-bold transition cursor-pointer disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              <span>PDF</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs sm:text-sm font-bold transition cursor-pointer shadow-xs"
+            >
+              <X className="w-4 h-4" />
+              <span>{lang === 'en' ? 'Close' : 'বন্ধ করুন'}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

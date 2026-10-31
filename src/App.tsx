@@ -390,6 +390,7 @@ function SamitiApp() {
               initialSubTab={subView || 'ind'}
               initialMemberId={selectedMemberForReport}
               onViewReceipt={handleViewReceipt}
+              onClose={() => navigateTo('dash')}
             />
           )}
 

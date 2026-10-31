@@ -5,6 +5,7 @@ import {
   Download,
   Loader2,
   CheckCircle2,
+  X,
 } from 'lucide-react';
 import { useSamiti } from '../context/SamitiContext';
 import {
@@ -23,12 +24,14 @@ interface ReportsViewProps {
   initialSubTab?: string;
   initialMemberId?: number | null;
   onViewReceipt?: (receiptId: number) => void;
+  onClose?: () => void;
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
   initialSubTab = 'ind',
   initialMemberId,
   onViewReceipt,
+  onClose,
 }) => {
   const { data, lang, t } = useSamiti();
 
@@ -1093,6 +1096,58 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* ======================================================== */}
+      {/* BOTTOM ACTION BAR FOR ALL OPEN REPORTS (No Print)        */}
+      {/* ======================================================== */}
+      <div className="noprint bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+        <div className="flex items-center gap-2.5 text-slate-700">
+          <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="font-bold text-xs sm:text-sm block text-slate-900">
+              {lang === 'en' ? 'Report Actions & Print' : 'রিপোর্ট প্রিন্ট ও অ্যাকশন'}
+            </span>
+            <span className="text-[11px] text-slate-500">
+              {lang === 'en' ? 'Print or save this report, or close to return to Dashboard' : 'রিপোর্টটি সরাসরি প্রিন্ট করুন অথবা বন্ধ করে ড্যাশবোর্ডে ফিরে যান'}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+          <button
+            onClick={handlePrint}
+            disabled={isGeneratingPdf}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 disabled:opacity-60 text-white rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer shadow-sm"
+          >
+            {isGeneratingPdf ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Printer className="w-4 h-4" />
+            )}
+            <span>{t('printReportBtn')}</span>
+          </button>
+
+          <button
+            onClick={handleDownloadPdf}
+            disabled={isGeneratingPdf}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 disabled:opacity-60 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>{lang === 'en' ? 'Download PDF' : 'PDF ডাউনলোড'}</span>
+          </button>
+
+          <button
+            onClick={onClose || (() => window.scrollTo({ top: 0, behavior: 'smooth' }))}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer shadow-xs"
+            title={lang === 'en' ? 'Close Report' : 'রিপোর্ট বন্ধ করুন'}
+          >
+            <X className="w-4 h-4" />
+            <span>{lang === 'en' ? 'Close' : 'বন্ধ করুন'}</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
