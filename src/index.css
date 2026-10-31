@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Hind Siliguri', 'Noto Sans Bengali', 'Nirmala UI', 'Kalpurush', 'Siyam Rupali', Segoe UI, sans-serif;
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 28s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+@media print {
+  .noprint,
+  nav,
+  aside,
+  header {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Hide main content when a receipt modal is being printed */
+  body.printing-receipt main,
+  body.printing-receipt aside,
+  body.printing-receipt header,
+  body.printing-receipt .noprint {
+    display: none !important;
+  }
+
+  body.printing-receipt #receipt-modal-wrapper {
+    position: static !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body.printing-receipt #receipt-modal-wrapper > div {
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

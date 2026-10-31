@@ -1,0 +1,6 @@
+{
+  "name": "সমিতি ম্যানেজার — Samiti Management System",
+  "description": "সমবায় সমিতি ও সঞ্চয় ঋণ সমিতির পূর্ণাঙ্গ ডিজিটাল হিসাব ব্যবস্থাপনা, চাঁদা আদায়, মানি রিসিট, সদস্য খতিয়ান ও আয়-ব্যয় হিসাব সফটওয়্যার।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
