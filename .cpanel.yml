@@ -1,0 +1,12 @@
+---
+deployment:
+  tasks:
+    # Set your cPanel public_html or subdomain path here (Replace 'your_cpanel_username' with your real cPanel username):
+    - export DEPLOYPATH=/home/your_cpanel_username/public_html/
+    # If deploying to a subdomain, use:
+    # - export DEPLOYPATH=/home/your_cpanel_username/subdomain.yourdomain.com/
+    
+    # Copy production files to the public web directory
+    - /bin/mkdir -p $DEPLOYPATH
+    - /bin/cp -R dist/* $DEPLOYPATH
+    - /bin/cp public/.htaccess $DEPLOYPATH
