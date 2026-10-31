@@ -15,8 +15,9 @@ import { Language, translations } from '../utils/translations';
 
 interface SamitiContextType {
   data: SamitiStoreData;
-  currentUser: UserAccount;
-  setCurrentUser: (user: UserAccount) => void;
+  currentUser: UserAccount | null;
+  setCurrentUser: (user: UserAccount | null) => void;
+  logout: () => void;
   lang: Language;
   setLang: (lang: Language) => void;
   t: (key: keyof typeof translations['bn']) => string;
@@ -376,9 +377,12 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return getDefaultStoreData();
   });
 
-  const [currentUser, setCurrentUser] = useState<UserAccount>(() => {
-    return data.users[0] || DEFAULT_USERS[0];
-  });
+  // Initially null so opening or searching the domain always lands on the Login Page
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+
+  const logout = () => {
+    setCurrentUser(null);
+  };
 
   const LANG_STORAGE_KEY = 'samiti_manager_lang_v1';
   const [lang, setLangState] = useState<Language>(() => {
@@ -423,12 +427,13 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const can = (perm: string): boolean => {
+    if (!currentUser) return false;
     if (currentUser.role === 'admin') return true;
     return currentUser.perms.includes(perm as any);
   };
 
   const canDelete = (): boolean => {
-    if (!currentUser) return true;
+    if (!currentUser) return false;
     if (currentUser.role === 'admin') return true;
     return currentUser.can_delete !== false;
   };
@@ -762,6 +767,7 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         data,
         currentUser,
         setCurrentUser,
+        logout,
         lang,
         setLang,
         t,

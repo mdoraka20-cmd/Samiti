@@ -179,7 +179,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
     setFormError('');
     setPassSuccessMsg('');
 
-    const targetUser = currentUser.username;
+    const targetUser = currentUser?.username || 'admin';
     const userInDb = data.users.find((u) => u.username === targetUser);
     const expectedCurrentPass = userInDb?.passwordHash || (targetUser === 'admin' ? 'admin' : '');
 
@@ -404,7 +404,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {data.users.map((u) => {
-                    const isSelf = currentUser.username === u.username;
+                    const isSelf = currentUser?.username === u.username;
                     return (
                       <tr key={u.username} className="hover:bg-slate-50">
                         <td className="py-3 px-4 font-mono font-bold text-slate-900 text-xs">
@@ -726,7 +726,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ initialTab = 'users' }) =>
             <h3 className="font-bold text-base text-slate-900 mb-1 flex items-center gap-2">
               <Lock className="w-5 h-5 text-indigo-700" />
               <span>
-                {t('changePasswordTitle')} ({currentUser.username})
+                {t('changePasswordTitle')} ({currentUser?.username || 'admin'})
               </span>
             </h3>
             <p className="text-xs text-slate-500">

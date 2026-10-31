@@ -6,9 +6,14 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 interface LoginModalProps {
   onSuccess: () => void;
   onCancel?: () => void;
+  isFullPage?: boolean;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, onCancel }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({
+  onSuccess,
+  onCancel,
+  isFullPage = false,
+}) => {
   const { data, setCurrentUser, changePassword, lang, t } = useSamiti();
 
   // Inputs start completely empty - user must manually enter username and password
@@ -108,35 +113,36 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, onCancel }) =
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-gradient-to-br from-indigo-950/90 via-teal-950/80 to-slate-950/95 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full overflow-hidden p-6 sm:p-8 relative animate-in fade-in zoom-in-95 duration-150">
-        {/* Optional close button if already logged in */}
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="absolute top-4 left-4 p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-            title={lang === 'en' ? 'Close' : 'বন্ধ করুন'}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
+  const contentCard = (
+    <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full overflow-hidden p-6 sm:p-8 relative animate-in fade-in zoom-in-95 duration-150">
+      {/* Optional close button if in modal mode and onCancel provided */}
+      {!isFullPage && onCancel && (
+        <button
+          type="button"
+          onClick={onCancel}
+          className="absolute top-4 left-4 p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+          title={lang === 'en' ? 'Close' : 'বন্ধ করুন'}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
 
-        {/* Language switch at top right */}
+      {/* Language switch at top right (in modal mode) */}
+      {!isFullPage && (
         <div className="absolute top-4 right-4">
           <LanguageSwitcher compact={true} />
         </div>
+      )}
 
-        <div className="text-center mb-6 pt-2">
-          <div className="w-14 h-14 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-2xl mx-auto flex items-center justify-center text-white shadow-lg shadow-teal-500/20 mb-3">
-            <Lock className="w-7 h-7" />
-          </div>
-          <h2 className="text-xl font-extrabold text-slate-900 font-serif">
-            {t('loginModalTitle')}
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">{data.settings.heading}</p>
+      <div className="text-center mb-6 pt-2">
+        <div className="w-14 h-14 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-2xl mx-auto flex items-center justify-center text-white shadow-lg shadow-teal-500/20 mb-3">
+          <Lock className="w-7 h-7" />
         </div>
+        <h2 className="text-xl font-extrabold text-slate-900 font-serif">
+          {t('loginModalTitle')}
+        </h2>
+        <p className="text-xs text-slate-500 mt-0.5">{data.settings.heading}</p>
+      </div>
 
         {error && (
           <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
@@ -264,6 +270,46 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, onCancel }) =
           <p>{t('contact')}</p>
         </div>
       </div>
+    );
+
+  if (isFullPage) {
+    return (
+      <div className="min-h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col justify-between p-4 sm:p-6 text-slate-100">
+        {/* Top Header Bar */}
+        <header className="w-full max-w-5xl mx-auto flex items-center justify-between pb-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center font-bold text-xl shadow-md">
+              {lang === 'bn' ? 'স' : 'S'}
+            </div>
+            <div>
+              <h1 className="font-bold text-base sm:text-lg text-white">
+                {data.settings.heading}
+              </h1>
+              <p className="text-xs text-emerald-400">
+                {data.settings.subheading || data.settings.reg_no || t('appSubtitle')}
+              </p>
+            </div>
+          </div>
+          <LanguageSwitcher className="bg-slate-800/90 border-slate-700 text-slate-200" />
+        </header>
+
+        {/* Center Login Card */}
+        <main className="my-auto py-8 w-full flex items-center justify-center">
+          {contentCard}
+        </main>
+
+        {/* Bottom Credits */}
+        <footer className="w-full max-w-5xl mx-auto pt-4 border-t border-slate-800 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <p>{data.settings.heading} &copy; {new Date().getFullYear()} — All rights reserved.</p>
+          <p className="text-emerald-400/90 font-medium">Developed By Os Technology | Contact: md.oraka@gmail.com</p>
+        </footer>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-gradient-to-br from-indigo-950/90 via-teal-950/80 to-slate-950/95 backdrop-blur-xs flex items-center justify-center p-4">
+      {contentCard}
     </div>
   );
 };

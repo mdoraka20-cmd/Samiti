@@ -36,7 +36,7 @@ import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { formatNumberWithLang, formatCurrencyWithLang } from './utils/translations';
 
 function SamitiApp() {
-  const { data, currentUser, can, lang, t } = useSamiti();
+  const { data, currentUser, logout, can, lang, t } = useSamiti();
 
   const [currentView, setCurrentView] = useState<string>('dash');
   const [subView, setSubView] = useState<string>('');
@@ -50,9 +50,6 @@ function SamitiApp() {
   // Active receipt modal
   const [activeReceiptId, setActiveReceiptId] = useState<number | null>(null);
 
-  // Login modal
-  const [showLoginModal, setShowLoginModal] = useState(false);
-
   // Quick navigation helper
   const navigateTo = (view: string, sub: string = '') => {
     setCurrentView(view);
@@ -60,6 +57,18 @@ function SamitiApp() {
     setSidebarOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // If not authenticated, always display the full Login Page first with empty credentials
+  if (!currentUser) {
+    return (
+      <LoginModal
+        isFullPage={true}
+        onSuccess={() => {
+          navigateTo('dash');
+        }}
+      />
+    );
+  }
 
   // Open receipt voucher modal
   const handleViewReceipt = (receiptId: number) => {
@@ -159,6 +168,13 @@ function SamitiApp() {
         <div className="flex items-center gap-2 shrink-0">
           <LanguageSwitcher compact className="bg-white/10 border-white/20 text-white" />
           <button
+            onClick={logout}
+            title={t('logout')}
+            className="p-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white transition shrink-0 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => handleViewReceipt(data.payments[0]?.receipt_id || 1001)}
             className="text-xs bg-emerald-600 px-2.5 py-1.5 rounded font-semibold text-white cursor-pointer"
           >
@@ -241,8 +257,8 @@ function SamitiApp() {
           {/* Bottom Actions & Attribution */}
           <div className="p-4 border-t border-slate-800 bg-slate-950/40 space-y-3">
             <button
-              onClick={() => setShowLoginModal(true)}
-              className="w-full flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition cursor-pointer"
+              onClick={logout}
+              className="w-full flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-rose-900/60 hover:text-rose-200 text-slate-300 rounded-lg text-xs font-semibold transition cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               <span>{t('logout')}</span>
@@ -320,6 +336,16 @@ function SamitiApp() {
                 <span>{t('addDepositBtn')}</span>
               </button>
             )}
+
+            {/* Logout Action */}
+            <button
+              onClick={logout}
+              title={t('logout')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs"
+            >
+              <LogOut className="w-4 h-4 text-rose-600" />
+              <span>{t('logout')}</span>
+            </button>
           </div>
         </header>
 
@@ -383,17 +409,6 @@ function SamitiApp() {
           member={activeReceiptMember}
           settings={data.settings}
           onClose={() => setActiveReceiptId(null)}
-        />
-      )}
-
-      {/* LOGIN MODAL */}
-      {showLoginModal && (
-        <LoginModal
-          onSuccess={() => {
-            setShowLoginModal(false);
-            navigateTo('dash');
-          }}
-          onCancel={() => setShowLoginModal(false)}
         />
       )}
     </div>
