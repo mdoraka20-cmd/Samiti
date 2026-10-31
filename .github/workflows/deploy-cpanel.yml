@@ -30,16 +30,24 @@ jobs:
       - name: 📂 Ensure .htaccess is included in dist
         run: cp public/.htaccess dist/ || true
 
+      - name: 🔍 Check Secrets Configuration
+        run: |
+          if [ -z "${{ secrets.FTP_SERVER || vars.FTP_SERVER }}" ]; then
+            echo "::error::FTP_SERVER secret বা variable টি পাওয়া যায়নি! অনুগ্রহ করে Repository Settings -> Secrets and variables -> Actions এ গিয়ে FTP_SERVER যোগ করুন।"
+            exit 1
+          fi
+          echo "FTP_SERVER পাওয়া গেছে!"
+
       - name: 🚀 Deploy to cPanel via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          port: 21
+          server: ${{ secrets.FTP_SERVER || vars.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME || vars.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD || vars.FTP_PASSWORD }}
+          protocol: ${{ secrets.FTP_PROTOCOL || vars.FTP_PROTOCOL || 'ftp' }}
+          port: ${{ secrets.FTP_PORT || vars.FTP_PORT || 21 }}
           # Local folder to deploy (the production build folder)
           local-dir: ./dist/
           # Destination path on cPanel (e.g., public_html/ or public_html/somoti/)
-          server-dir: ${{ secrets.FTP_SERVER_DIR || 'public_html/' }}
+          server-dir: ${{ secrets.FTP_SERVER_DIR || vars.FTP_SERVER_DIR || 'public_html/' }}
           dangerous-clean-slate: false
