@@ -1,0 +1,46 @@
+{
+  "entities": {
+    "SamitiStore": {
+      "title": "SamitiStore",
+      "description": "Central persistent database state for Somoti management app shared across all devices and browsers",
+      "type": "object",
+      "properties": {
+        "settings": {
+          "type": "object",
+          "description": "Samiti organization information and receipt configuration"
+        },
+        "members": {
+          "type": "array",
+          "description": "Registered cooperative members list"
+        },
+        "payments": {
+          "type": "array",
+          "description": "Payment and collection receipt items"
+        },
+        "entries": {
+          "type": "array",
+          "description": "Income and expense transactions"
+        },
+        "users": {
+          "type": "array",
+          "description": "User accounts with roles, permissions and passwords"
+        },
+        "license": {
+          "type": "object",
+          "description": "License status and validity"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        }
+      },
+      "required": ["settings", "members", "payments", "entries", "users", "license"]
+    }
+  },
+  "firestore": {
+    "/samiti_store/{docId}": {
+      "schema": "SamitiStore",
+      "description": "Collection storing the synchronized multi-device data"
+    }
+  }
+}

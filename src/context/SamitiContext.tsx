@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import {
   Member,
   PaymentItem,
@@ -10,7 +12,7 @@ import {
   SamitiStoreData,
   PaymentMethod,
 } from '../types/samiti';
-import { todayIso, currentMonthIso, toBnNumber } from '../utils/bengali';
+import { todayIso, toBnNumber } from '../utils/bengali';
 import { Language, translations } from '../utils/translations';
 
 interface SamitiContextType {
@@ -72,6 +74,7 @@ interface SamitiContextType {
 }
 
 const STORAGE_KEY = 'samiti_manager_data_v2';
+const FIRESTORE_DOC_PATH = 'samiti_store/state';
 
 const getInitialExpiry = () => {
   const d = new Date();
@@ -344,6 +347,18 @@ const getDefaultStoreData = (): SamitiStoreData => ({
   license: { ...DEFAULT_LICENSE },
 });
 
+// Recalculate license days
+const checkLicense = (lic: LicenseInfo): LicenseInfo => {
+  const today = new Date();
+  const exp = new Date(lic.expiry);
+  const diffDays = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  return {
+    ...lic,
+    days_left: diffDays,
+    expired: diffDays < 0,
+  };
+};
+
 const SamitiContext = createContext<SamitiContextType | undefined>(undefined);
 
 export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -352,15 +367,9 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // check days left on load
         if (parsed.license && parsed.license.expiry) {
-          const exp = new Date(parsed.license.expiry);
-          const now = new Date();
-          const diff = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-          parsed.license.days_left = diff;
-          parsed.license.expired = diff < 0;
+          parsed.license = checkLicense(parsed.license);
         }
-        // Ensure users have passwordHash initialized if missing
         if (Array.isArray(parsed.users)) {
           parsed.users = parsed.users.map((u: UserAccount) => {
             if (u.username === 'admin' && !u.passwordHash) {
@@ -377,7 +386,7 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return getDefaultStoreData();
   });
 
-  // Initially null so opening or searching the domain always lands on the Login Page
+  // Screen requires manual login on each visit
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
   const logout = () => {
@@ -405,26 +414,84 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return dict[key] || translations.bn[key] || String(key);
   };
 
-  // Save to local storage on state change
-  useEffect(() => {
+  // Helper to persist to Firestore
+  const saveToCloud = (nextData: SamitiStoreData) => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (e) {
-      console.error('Failed to save to localStorage', e);
+      const docRef = doc(db, 'samiti_store', 'state');
+      setDoc(docRef, {
+        ...nextData,
+        updatedAt: new Date().toISOString(),
+      }).catch((err) => {
+        handleFirestoreError(err, OperationType.WRITE, FIRESTORE_DOC_PATH);
+      });
+    } catch (err) {
+      console.error('Error invoking Firestore write:', err);
     }
-  }, [data]);
-
-  // Recalculate license
-  const checkLicense = (lic: LicenseInfo): LicenseInfo => {
-    const today = new Date();
-    const exp = new Date(lic.expiry);
-    const diffDays = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return {
-      ...lic,
-      days_left: diffDays,
-      expired: diffDays < 0,
-    };
   };
+
+  // Unified updater for local state, localStorage, and Firestore cloud
+  const updateData = (updater: (prev: SamitiStoreData) => SamitiStoreData) => {
+    setData((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch (e) {
+        console.error('Failed to save to localStorage', e);
+      }
+      saveToCloud(next);
+      return next;
+    });
+  };
+
+  // Real-time synchronization across all tabs, browsers, IPs, and mobile devices
+  useEffect(() => {
+    const docRef = doc(db, 'samiti_store', 'state');
+    const unsub = onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const cloudData = docSnap.data() as any;
+          if (cloudData && Array.isArray(cloudData.users)) {
+            const syncedData: SamitiStoreData = {
+              settings: cloudData.settings ? { ...DEFAULT_SETTINGS, ...cloudData.settings } : DEFAULT_SETTINGS,
+              members: Array.isArray(cloudData.members) ? cloudData.members : [],
+              payments: Array.isArray(cloudData.payments) ? cloudData.payments : [],
+              entries: Array.isArray(cloudData.entries) ? cloudData.entries : [],
+              users: Array.isArray(cloudData.users) && cloudData.users.length > 0 ? cloudData.users : DEFAULT_USERS,
+              license: cloudData.license ? checkLicense(cloudData.license) : DEFAULT_LICENSE,
+            };
+
+            // Ensure admin has default password if unassigned
+            syncedData.users = syncedData.users.map((u: UserAccount) => {
+              if (u.username === 'admin' && !u.passwordHash) {
+                return { ...u, passwordHash: 'admin' };
+              }
+              return u;
+            });
+
+            setData(syncedData);
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedData));
+            } catch {}
+          }
+        } else {
+          // Cloud document does not exist yet: seed initial store data to Firestore
+          const initial = data.users.length > 0 ? data : getDefaultStoreData();
+          setDoc(docRef, {
+            ...initial,
+            updatedAt: new Date().toISOString(),
+          }).catch((err) => {
+            handleFirestoreError(err, OperationType.WRITE, FIRESTORE_DOC_PATH);
+          });
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, FIRESTORE_DOC_PATH);
+      }
+    );
+
+    return () => unsub();
+  }, []);
 
   const can = (perm: string): boolean => {
     if (!currentUser) return false;
@@ -472,7 +539,7 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       active: 1,
       created: todayIso(),
     };
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       members: [...prev.members, newMember],
     }));
@@ -480,23 +547,21 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateMember = (id: number, updates: Partial<Member>) => {
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       members: prev.members.map((m) => (m.id === id ? { ...m, ...updates } : m)),
     }));
   };
 
   const deleteMember = (id: number) => {
-    // Soft delete: marks active as 0 to preserve financial transaction history
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       members: prev.members.map((m) => (m.id === id ? { ...m, active: 0 } : m)),
     }));
   };
 
   const permanentDeleteMember = (id: number) => {
-    // Permanent deletion of member and their records
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       members: prev.members.filter((m) => m.id !== id),
       payments: prev.payments.filter((p) => p.member_id !== id),
@@ -504,7 +569,7 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const restoreMember = (id: number) => {
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       members: prev.members.map((m) => (m.id === id ? { ...m, active: 1 } : m)),
     }));
@@ -550,7 +615,7 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     });
 
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       payments: [...prev.payments, ...newPaymentItems],
     }));
@@ -593,14 +658,14 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     });
 
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       payments: [...prev.payments.filter((p) => p.receipt_id !== receiptId), ...newItems],
     }));
   };
 
   const deleteReceipt = (receiptId: number) => {
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       payments: prev.payments.filter((p) => p.receipt_id !== receiptId),
     }));
@@ -613,21 +678,21 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ...entry,
       id: nextId,
     };
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       entries: [newEntry, ...prev.entries],
     }));
   };
 
   const updateEntry = (id: number, entry: Omit<Entry, 'id'>) => {
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       entries: prev.entries.map((e) => (e.id === id ? { ...entry, id } : e)),
     }));
   };
 
   const deleteEntry = (id: number) => {
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       entries: prev.entries.filter((e) => e.id !== id),
     }));
@@ -635,7 +700,7 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Settings & System
   const updateSettings = (newSettings: Partial<Settings>) => {
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       settings: { ...prev.settings, ...newSettings },
     }));
@@ -647,7 +712,7 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     show_scroll?: boolean,
     scroll_text?: string
   ) => {
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       license: checkLicense({
         ...prev.license,
@@ -660,7 +725,7 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const wipeData = (options: { members?: boolean; payments?: boolean; entries?: boolean }) => {
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       members: options.members ? [] : prev.members,
       payments: options.payments ? [] : prev.payments,
@@ -678,14 +743,15 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ) {
         return false;
       }
-      setData({
+      const full = {
         settings: { ...DEFAULT_SETTINGS, ...importedData.settings },
         members: importedData.members,
         payments: importedData.payments,
         entries: importedData.entries || [],
         users: importedData.users || DEFAULT_USERS,
         license: checkLicense(importedData.license || DEFAULT_LICENSE),
-      });
+      };
+      updateData(() => full);
       return true;
     } catch {
       return false;
@@ -694,9 +760,8 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const resetToDemo = () => {
     const demo = getDefaultStoreData();
-    setData(demo);
+    updateData(() => demo);
     setCurrentUser(demo.users[0]);
-    localStorage.removeItem(STORAGE_KEY);
   };
 
   // User Management
@@ -714,7 +779,7 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       created: todayIso(),
       has_pw: false,
     };
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       users: [...prev.users, newUser],
     }));
@@ -722,7 +787,7 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateUser = (username: string, updates: Partial<UserAccount>) => {
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       users: prev.users.map((u) => (u.username === username ? { ...u, ...updates } : u)),
     }));
@@ -730,27 +795,21 @@ export const SamitiProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const deleteUser = (username: string) => {
     if (username === 'admin') return;
-    setData((prev) => ({
+    updateData((prev) => ({
       ...prev,
       users: prev.users.filter((u) => u.username !== username),
     }));
   };
 
   const changePassword = (username: string, newPasswordHash: string) => {
-    setData((prev) => {
+    updateData((prev) => {
       const updatedUsers = prev.users.map((u) =>
         u.username === username ? { ...u, has_pw: true, passwordHash: newPasswordHash } : u
       );
-      const updated = {
+      return {
         ...prev,
         users: updatedUsers,
       };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to save to localStorage', e);
-      }
-      return updated;
     });
 
     setCurrentUser((prev) => {
